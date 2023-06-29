@@ -6,3 +6,4 @@ A simple go module
 - [x] Get a random string of length n
 - [x] Create a dir if does not exist
 - [x] Slugify a string
+- [x] Download a file
