@@ -2,8 +2,9 @@
 
 A simple go module
 
-[]Upload a file to a specified directory
-[]Get a random string of length n
+[V]Upload a file to a specified directory
+[V]Get a random string of length n
+[V]Create a dir if does not exist
 
 ##instal:
 
