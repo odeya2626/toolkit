@@ -2,6 +2,7 @@ package toolkit
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,9 @@ const randomStringSrc = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012
 type Tools struct{
 	MaxFileSize int
 	AllowedFileTypes []string
+	MaxJSONSize int
+	AllowUnknownFields bool
+
 }
 
 func (t *Tools) RandomString(n int) string {
@@ -175,6 +179,61 @@ func (t *Tools) DownloadFile(w http.ResponseWriter, r *http.Request, p, file, di
 	filePath := path.Join(p, file)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", displayName))
 	http.ServeFile(w,r,filePath)
+
+
+}
+//type for sending JSON response
+type JSONResponse struct{
+	Error bool `json:"error"`
+	Message string `json:"message"`
+	Data interface{} `json:"data,omitempty"`
+
+}
+func (t *Tools) ReadJSON(w http.ResponseWriter, r *http.Request, data interface{}) error{
+	maxBytes := 1024*1024
+	if t.MaxJSONSize !=0{
+		maxBytes = t.MaxJSONSize
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
+	dec := json.NewDecoder(r.Body)
+
+	if(!t.AllowUnknownFields){
+		dec.DisallowUnknownFields()
+	}
+	err:=dec.Decode(data)
+	if err!=nil{
+		var syntaxError *json.SyntaxError
+		var unmarshalTypeError *json.UnmarshalTypeError
+		var invalidUnmarshalError *json.InvalidUnmarshalError
+		switch{
+		case errors.As(err, &syntaxError):
+			return fmt.Errorf("json contains syntax error (at character %d)", syntaxError.Offset)
+		case errors.Is(err, io.ErrUnexpectedEOF):
+			return errors.New("Body contains badly-formed JSON")
+		case errors.As(err, &unmarshalTypeError):
+			if unmarshalTypeError.Field != ""{
+				return fmt.Errorf("Body contains incorrect JSON type for field %q", unmarshalTypeError.Field)
+			}
+			return fmt.Errorf("Body contains incorrect JSON type (at character %d)", unmarshalTypeError.Offset)
+		case errors.Is(err, io.EOF):
+			return errors.New("Body must not be empty")
+		case strings.HasPrefix(err.Error(), "json: unknown field"):
+			fileName:= strings.TrimPrefix(err.Error(), "json: unknown field")
+			return fmt.Errorf("Body contains unknown key %s", fileName)
+		case err.Error() == "http: request body too large":
+			return fmt.Errorf("Body must not be larger than %d bytes", maxBytes)
+		case errors.As(err, &invalidUnmarshalError):
+			return fmt.Errorf("Error unmarshalling JSON: %s", err.Error())
+		
+		default:
+			return err
+		}
+	}
+	err = dec.Decode(&struct{}{})
+	if err!= io.EOF{
+		return errors.New("Body must contain only one json")
+	}
+	return nil
 
 
 }

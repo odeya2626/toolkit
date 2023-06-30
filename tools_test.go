@@ -1,6 +1,7 @@
 package toolkit
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/png"
@@ -192,5 +193,49 @@ func TestTools_DownloadFile(t *testing.T){
 	_, err:= ioutil.ReadAll(res.Body)
 	if err!=nil{
 		t.Error(err)
+	}
+}
+
+var jsonTests = []struct{
+	name string
+	json string
+	errorExpected bool
+	maxSize int
+	allowUnknown bool
+}{
+	{name: "no errors json", json: `{"foo":"bar"}`, errorExpected: false, maxSize: 1024, allowUnknown: false},
+	{name: "badly formatted json", json: `{"foo":}`, errorExpected: true, maxSize: 1024, allowUnknown: false},
+	{name: "incorrect type", json: `{"foo":1}`, errorExpected: true, maxSize: 1024, allowUnknown: false},
+	{name: "two json file", json: `{"foo":"bar}{"fox":"box}`, errorExpected: true, maxSize: 1024, allowUnknown: false},
+	{name: "empty json", json: ``, errorExpected: true, maxSize: 1024, allowUnknown: false},
+	{name: "syntax error in json", json: `{"foo":1"`, errorExpected: true, maxSize: 1024, allowUnknown: false},
+	{name: "unknown field in json", json: `{"unknownField":"1"}`, errorExpected: true, maxSize: 1024, allowUnknown: false},
+	{name: "allow unknown fields in json", json: `{"unknownField":"1"}`, errorExpected: false, maxSize: 1024, allowUnknown: true},
+	{name: "file too large", json: `{"unknownField":"1"}`, errorExpected: true, maxSize: 2, allowUnknown: true},
+	{name: "not json", json: "string", errorExpected: true, maxSize: 1024, allowUnknown: true},
+	
+}
+func TestTools_ReadJSON(t *testing.T){
+	var testTool Tools
+	for _,jsonTest := range jsonTests{
+		testTool.MaxJSONSize = jsonTest.maxSize
+		testTool.AllowUnknownFields =  jsonTest.allowUnknown
+		var decodedJson struct{
+			Foo string `json:"foo"`
+		}
+		req, err := http.NewRequest("POST", "/", bytes.NewReader([]byte(jsonTest.json)))
+		if err!=nil{
+			t.Log("Error:",err)
+		}
+		rr:=httptest.NewRecorder()
+		err =testTool.ReadJSON(rr, req, &decodedJson)
+		if jsonTest.errorExpected && err == nil{
+			t.Errorf("%s: error expected, but none received", jsonTest.name)
+		}
+		if !jsonTest.errorExpected && err !=nil{
+			t.Errorf("%s: error not expected, but one received", jsonTest.name)
+		}
+
+
 	}
 }
