@@ -7,3 +7,4 @@ A simple go module
 - [x] Create a dir if does not exist
 - [x] Slugify a string
 - [x] Download a file
+- [x] JSON methods (read,write,error)
