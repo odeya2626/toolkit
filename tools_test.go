@@ -161,10 +161,10 @@ var slugTests = []struct{
 	{name:  "not english string", s: "ሰላም ልዑል", expected: "", errorExpected: true }, {name:  "some not english characters string", s: "!helloሰላም ልዑል", expected: "hello", errorExpected: false },
 }
 func TestTools_Slugify(t *testing.T){
-	var testTool Tools
+	var testTools Tools
 
 	for _, slugTest := range slugTests{
-		slug ,err := testTool.Slugify(slugTest.s)
+		slug ,err := testTools.Slugify(slugTest.s)
 		if err != nil && !slugTest.errorExpected{
 			t.Errorf("%s: error received when not expected: %s", slugTest.name, err.Error())
 		}
@@ -179,8 +179,8 @@ func TestTools_DownloadFile(t *testing.T){
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
 
-	var testTool Tools
-	testTool.DownloadFile(rr,req,"./testdata", "img.png", "clock.png")
+	var testTools Tools
+	testTools.DownloadFile(rr,req,"./testdata", "img.png", "clock.png")
 	res:=rr.Result()
 	defer res.Body.Close()
 
@@ -216,10 +216,10 @@ var jsonTests = []struct{
 	
 }
 func TestTools_ReadJSON(t *testing.T){
-	var testTool Tools
+	var testTools Tools
 	for _,jsonTest := range jsonTests{
-		testTool.MaxJSONSize = jsonTest.maxSize
-		testTool.AllowUnknownFields =  jsonTest.allowUnknown
+		testTools.MaxJSONSize = jsonTest.maxSize
+		testTools.AllowUnknownFields =  jsonTest.allowUnknown
 		var decodedJson struct{
 			Foo string `json:"foo"`
 		}
@@ -228,14 +228,28 @@ func TestTools_ReadJSON(t *testing.T){
 			t.Log("Error:",err)
 		}
 		rr:=httptest.NewRecorder()
-		err =testTool.ReadJSON(rr, req, &decodedJson)
+		err =testTools.ReadJSON(rr, req, &decodedJson)
 		if jsonTest.errorExpected && err == nil{
 			t.Errorf("%s: error expected, but none received", jsonTest.name)
 		}
 		if !jsonTest.errorExpected && err !=nil{
 			t.Errorf("%s: error not expected, but one received", jsonTest.name)
 		}
+		req.Body.Close()
 
-
+	}
+}
+func TestTools_WriteJSON(t *testing.T){
+	var testTools Tools
+	rr :=httptest.NewRecorder()
+	payload:=JSONResponse{
+		Error: false,
+		Message:"foo",
+	}
+	headers:=make(http.Header)
+	headers.Add("FOO","BAR")
+	err:= testTools.WriteJSON(rr, http.StatusOK, payload, headers)
+	if err!=nil{
+		t.Errorf("Failed to write json %v", err)
 	}
 }

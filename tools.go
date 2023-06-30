@@ -237,3 +237,24 @@ func (t *Tools) ReadJSON(w http.ResponseWriter, r *http.Request, data interface{
 
 
 }
+
+func (t *Tools) WriteJSON(w http.ResponseWriter, status int, data interface{}, headers ...http.Header)error{
+	output, err := json.Marshal(data)
+	if err !=nil{
+		return err
+	}
+
+	if len(headers) >0{
+		for k,v := range headers[0]{
+			w.Header()[k] = v
+
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ , err = w.Write(output)
+	if err !=nil{
+	return err
+	}
+	return nil
+}
